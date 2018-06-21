@@ -406,6 +406,14 @@ class CountdownTimer {
             
             $sizesmain = [];
             $sizeslabels = [];
+            $offsets = [];
+            
+            $offsetsinputs = [
+                $parts[0],
+                "{$parts[0]}:",
+                "{$parts[0]}:{$parts[1]}:",
+                "{$parts[0]}:{$parts[1]}:{$parts[2]}:",
+            ];
             
             foreach ($parts as $x) {
                 // Calculate the size of each part of the time array
@@ -419,11 +427,16 @@ class CountdownTimer {
                 $sizeslabels[] = abs($labeltype[4] - $labeltype[0]);
             }
             
+            foreach ($offsetsinputs as $z) {
+                $offsettype = imagettfbbox($font['size'], 0, $font['path'], $z);
+                $offsets[] = abs($offsettype[4] - $offsettype[0]);
+            }
+            
             $this->labelCoords = [];
             $this->labelCoords[] = $this->textCoords['x'] + (($sizesmain[0] - $sizeslabels[0]) / 2);
-            $this->labelCoords[] = $this->labelCoords[0] + $sizesmain[0] + $colonwidth + (($sizesmain[1] - $sizeslabels[1]) / 2);
-            $this->labelCoords[] = $this->labelCoords[1] + $sizesmain[1] + $colonwidth + (($sizesmain[2] - $sizeslabels[2]) / 2);
-            $this->labelCoords[] = $this->labelCoords[2] + $sizesmain[2] + $colonwidth + (($sizesmain[3] - $sizeslabels[3]) / 2);
+            $this->labelCoords[] = $this->textCoords['x'] + $offsets[1] + $colonwidth + (($sizesmain[1] - $sizeslabels[1]) / 2);
+            $this->labelCoords[] = $this->textCoords['x'] + $offsets[2] + $colonwidth + (($sizesmain[2] - $sizeslabels[2]) / 2);
+            $this->labelCoords[] = $this->textCoords['x'] + $offsets[3] + $colonwidth + (($sizesmain[3] - $sizeslabels[3]) / 2);
         }
     }
 
