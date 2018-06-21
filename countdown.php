@@ -108,9 +108,19 @@ class CountdownTimer {
     private $textCoords = [];
     
     /**
+     * @var array
+     */
+    private $labelCoords = [];
+    
+    /**
      * @var boolean
      */
     private $recenter = false;
+    
+    /**
+     * @var array
+     */
+    private $labels = ['Days', 'Hrs', 'Mins', 'Secs'];
 
     /**
      * CountdownTimer constructor.
@@ -126,7 +136,7 @@ class CountdownTimer {
             'centerText' => true,
             'fontColor' => '#FFF',
             'labelOffsetsX' => '1.4,5,8,11',
-            'labelOffsetY' => 98,
+            'labelOffsetY' => 10,
             'timezone' => 'UTC',
             'time' => date('Y-m-d H:i:s'),
             'font' => 'BebasNeue',
@@ -291,40 +301,24 @@ class CountdownTimer {
             $this->loops = 1;
         } else {
             $text = $interval->format('%a:%H:%I:%S');
+            
+            if ($text[1] == ':') {
+                // Add a leading 0
+                $text = '0' . $text;
+            }
+            
             $this->loops = 0;
         }
         
-        $calculateCoords = !$this->textCoords;
-        
-        if ($calculateCoords) {
-            // The coordinates have not been calculated yet
-            $this->textCoords['x'] = $this->xOffset;
-            $this->textCoords['y'] = $this->yOffset;
-            $this->textCoords['labelOffsetY'] = 0;
-        }
-        
-        if ($this->centerText && ($calculateCoords || $this->recenter)) {
-            // Note, coords are calculated from the bottom of the text
-            $typeSpace = imagettfbbox($font['size'], 0, $font['path'], $text);
-            
-            $textWidth = abs($typeSpace[4] - $typeSpace[0]);
-            $textHeight = abs($typeSpace[5] - $typeSpace[1]);
-            
-            $spaceX = $this->width - $textWidth;
-            $spaceY = $this->height - $textHeight;
-            
-            $this->textCoords['x'] = $spaceX / 2;
-            $this->textCoords['y'] = $textHeight + ($spaceY / 2);
-            
-            $this->textCoords['labelOffsetY'] = $textHeight;
-        }
+        $this->calculateCoords($font, $text);
 
         if (!$this->hideLabel) {
-            $labels = array('Days', 'Hrs', 'Mins', 'Secs');
+            
+            $this->calculateCoordsLabel($font, $text);
         
             // apply the labels to the image $this->yOffset + ($this->characterHeight * 0.8)
-            foreach ($labels as $key => $label) {
-                $labelX = $this->xOffset + ($this->characterWidth * $this->labelOffsetsX[$key]);
+            foreach ($this->labels as $key => $label) {
+                $labelX = $this->labelCoords[$key];
                 $labelY = $this->textCoords['labelOffsetY'] + $this->labelOffsetY;
                 $color = $font['labelColor'] ?: $font['color'];
                 imagettftext($image, $font['labelSize'], 0, $labelX, $labelY, $color, $font['path'], $label);
@@ -343,6 +337,94 @@ class CountdownTimer {
         $this->date['now']->modify('+1 second');
 
         return $image;
+    }
+    
+    /**
+     * Calculate the coordinates for the main time text
+     * @param array $font An array defining information about the current font setup
+     * @param string $timetext The main time text, e.g. 03:23:59:59
+     */
+    private function calculateCoords($font, $timetext) {
+        $calculateCoords = !$this->textCoords;
+        
+        if ($calculateCoords) {
+            // The coordinates have not been calculated yet
+            $this->textCoords['x'] = $this->xOffset;
+            $this->textCoords['y'] = $this->yOffset;
+            $this->textCoords['labelOffsetY'] = 0;
+        }
+        
+        if ($this->centerText && ($calculateCoords || $this->recenter)) {
+            // Note, coords are calculated from the bottom of the text
+            $typeSpace = imagettfbbox($font['size'], 0, $font['path'], $timetext);
+            
+            $labelHeight = 0;
+            $labelOffset = 0;
+            
+            if (!$this->hideLabel) {
+                // Add in metrics for the label
+                $labelTypeSpace = imagettfbbox($font['labelSize'], 0, $font['path'], 'Days');
+                $labelHeight = abs($labelTypeSpace[5] - $labelTypeSpace[1]);
+                $labelOffset = $this->labelOffsetY;
+            }
+            
+            $textWidth = abs($typeSpace[4] - $typeSpace[0]);
+            $textHeight = abs($typeSpace[5] - $typeSpace[1]);
+            
+            $spaceX = $this->width - $textWidth;
+            $spaceY = $this->height - $textHeight - ($labelHeight + $labelOffset);
+            
+            $this->textCoords['x'] = $spaceX / 2;
+            $this->textCoords['y'] = $textHeight + ($spaceY / 2);
+            
+            $this->textCoords['labelOffsetY'] = $this->textCoords['y'] + $labelHeight;
+        }
+    }
+    
+    /**
+     * Calculate the coordinates of the label
+     * @param array $font An array defining information about the current font setup
+     * @param string $timetext The main time text, e.g. 03:23:59:59
+     */
+    private function calculateCoordsLabel($font, $timetext) {
+        $calculateCoords = !$this->labelCoords;
+        
+        if ($calculateCoords) {
+            $this->labelCoords = [
+                $this->xOffset + ($this->characterWidth * $this->labelOffsetsX[0]),
+                $this->xOffset + ($this->characterWidth * $this->labelOffsetsX[1]),
+                $this->xOffset + ($this->characterWidth * $this->labelOffsetsX[2]),
+                $this->xOffset + ($this->characterWidth * $this->labelOffsetsX[3]),
+            ];
+        }
+        
+        if ($this->centerText && ($calculateCoords || $this->recenter)) {
+            $parts = explode(':', $timetext);
+            
+            $colontype = imagettfbbox($font['size'], 0, $font['path'], ':');
+            $colonwidth = abs($colontype[4] - $colontype[0]);
+            
+            $sizesmain = [];
+            $sizeslabels = [];
+            
+            foreach ($parts as $x) {
+                // Calculate the size of each part of the time array
+                $timetype = imagettfbbox($font['size'], 0, $font['path'], $x);
+                $sizesmain[] = abs($timetype[4] - $timetype[0]);
+            }
+            
+            foreach ($this->labels as $y) {
+                // Calculate the size of each part of the time array
+                $labeltype = imagettfbbox($font['labelSize'], 0, $font['path'], $y);
+                $sizeslabels[] = abs($labeltype[4] - $labeltype[0]);
+            }
+            
+            $this->labelCoords = [];
+            $this->labelCoords[] = $this->textCoords['x'] + (($sizesmain[0] - $sizeslabels[0]) / 2);
+            $this->labelCoords[] = $this->labelCoords[0] + $sizesmain[0] + $colonwidth + (($sizesmain[1] - $sizeslabels[1]) / 2);
+            $this->labelCoords[] = $this->labelCoords[1] + $sizesmain[1] + $colonwidth + (($sizesmain[2] - $sizeslabels[2]) / 2);
+            $this->labelCoords[] = $this->labelCoords[2] + $sizesmain[2] + $colonwidth + (($sizesmain[3] - $sizeslabels[3]) / 2);
+        }
     }
 
     /**
