@@ -71,6 +71,134 @@ class CountdownTimer {
      * @var int
      */
     private $seconds = 30;
+    
+    /**
+     * @var array
+     */
+    private $labelOffsetsX;
+    
+    /**
+     * @var int
+     */
+    private $labelOffsetY = 98;
+    
+    /**
+     * @var boolean
+     */
+    private $hideLabel = false;
+    
+    /**
+     * @var string
+     */
+    private $labelColor;
+    
+    /**
+     * @var int
+     */
+    private $labelSize = 15;
+    
+    /**
+     * @var boolean
+     */
+    private $centerText = true;
+    
+    /**
+     * @var array
+     */
+    private $textCoords = [];
+    
+    /**
+     * @var boolean
+     */
+    private $recenter = false;
+
+    /**
+     * CountdownTimer constructor.
+     * @param array $settings
+     */
+    function __construct($settings) {
+        $s = $settings + [
+            'width' => 640,
+            'height' => 110,
+            'boxColor' => '#000',
+            'xOffset' => 155,
+            'yOffset' => 70,
+            'centerText' => true,
+            'fontColor' => '#FFF',
+            'labelOffsetsX' => '1.4,5,8,11',
+            'labelOffsetY' => 98,
+            'timezone' => 'UTC',
+            'time' => date('Y-m-d H:i:s'),
+            'font' => 'BebasNeue',
+            'fontSize' => 60,
+            'hideLabel' => false,
+            'labelColor' => null,
+            'labelSize' => 15,
+            'recenter' => false,
+        ];
+        
+        $this->width = $s['width'];
+        $this->height = $s['height'];
+        $this->boxColor = $s['boxColor'];
+        $this->xOffset = $s['xOffset'];
+        $this->yOffset = $s['yOffset'];
+        $this->boxColor = $this->hex2rgb($s['boxColor']);
+        $this->fontColor = $this->hex2rgb($s['fontColor']);
+        $this->labelColor = $s['labelColor'] ? $this->hex2rgb($s['labelColor']) : $this->fontColor;
+        
+        $this->centerText = $s['centerText'];
+        $this->recenter = $s['recenter'];
+
+        $this->labelOffsetsX = explode(',', $s['labelOffsetsX']);
+        $this->labelOffsetY = $s['labelOffsetY'];
+        $this->hideLabel = $s['hideLabel'];
+        $this->labelSize = $s['labelSize'];
+
+        $this->date['time'] = $s['time'];
+        $this->date['futureDate'] = new DateTime(date('r', strtotime($s['time'])));
+        
+        $dtnow = new \DateTimeZone($s['timezone']);
+        $timenow = new \DateTime('now', $dtnow);
+        $time = strtotime($timenow->format('Y-m-d H:i:s'));
+        
+        $this->date['timeNow'] = $time;
+        $this->date['now'] = new DateTime(date('r', $time));
+
+        // create new images
+        $this->box = imagecreatetruecolor($this->width, $this->height);
+        $this->base = imagecreatetruecolor($this->width, $this->height);
+
+        $this->fontSettings['path'] = __DIR__ . '/fonts/' . $s['font'] . '.ttf';
+        $this->fontSettings['color'] = imagecolorallocate($this->box, $this->fontColor[0], $this->fontColor[1], $this->fontColor[2]);
+        $this->fontSettings['labelColor'] = imagecolorallocate($this->box, $this->labelColor[0], $this->labelColor[1], $this->labelColor[2]);
+        $this->fontSettings['size'] = $s['fontSize'];
+        $this->fontSettings['labelSize'] = $s['labelSize'];
+        $this->fontSettings['characterWidth'] = imagefontwidth((int) $this->fontSettings['path']);
+
+        // get the width of each character
+        $string = "0:";
+        $size = $this->fontSettings['size'];
+        $angle = 0;
+        $fontfile = $this->fontSettings['path'];
+
+        $strlen = strlen($string);
+        for ($i = 0; $i < $strlen; $i++) {
+            $dimensions = imagettfbbox($size, $angle, $fontfile, $string[$i]);
+            $this->fontSettings['characterWidths'][] = [
+                $string[$i] => $dimensions[2]
+            ];
+        }
+
+        $this->images = [
+            'box' => $this->box,
+            'base' => $this->base,
+        ];
+
+        // create empty filled rectangles
+        foreach ($this->images as $image) {
+            $this->createFilledBox($image);
+        }
+    }
 
     /**
      * hex2rgb
@@ -108,61 +236,6 @@ class CountdownTimer {
                         $image, $this->boxColor[0], $this->boxColor[1], $this->boxColor[2]
                 )
         );
-    }
-
-    /**
-     * CountdownTimer constructor.
-     *
-     * @param $settings
-     */
-    public function __construct($settings) {
-        $this->width = $settings['width'];
-        $this->height = $settings['height'];
-        $this->boxColor = $settings['boxColor'];
-        $this->xOffset = $settings['xOffset'];
-        $this->yOffset = $settings['yOffset'];
-        $this->boxColor = $this->hex2rgb($settings['boxColor']);
-        $this->fontColor = $this->hex2rgb($settings['fontColor']);
-
-        $this->labelOffsets = explode(',', $settings['labelOffsets']);
-
-        $this->date['time'] = $settings['time'];
-        $this->date['futureDate'] = new DateTime(date('r', strtotime($settings['time'])));
-        $this->date['timeNow'] = time();
-        $this->date['now'] = new DateTime(date('r', time()));
-
-        // create new images
-        $this->box = imagecreatetruecolor($this->width, $this->height);
-        $this->base = imagecreatetruecolor($this->width, $this->height);
-
-        $this->fontSettings['path'] = __DIR__ . '/fonts/' . $settings['font'] . '.ttf';
-        $this->fontSettings['color'] = imagecolorallocate($this->box, $this->fontColor[0], $this->fontColor[1], $this->fontColor[2]);
-        $this->fontSettings['size'] = $settings['fontSize'];
-        $this->fontSettings['characterWidth'] = imagefontwidth((int) $this->fontSettings['path']);
-
-        // get the width of each character
-        $string = "0:";
-        $size = $this->fontSettings['size'];
-        $angle = 0;
-        $fontfile = $this->fontSettings['path'];
-
-        $strlen = strlen($string);
-        for ($i = 0; $i < $strlen; $i++) {
-            $dimensions = imagettfbbox($size, $angle, $fontfile, $string[$i]);
-            $this->fontSettings['characterWidths'][] = [
-                $string[$i] => $dimensions[2]
-            ];
-        }
-
-        $this->images = [
-            'box' => $this->box,
-            'base' => $this->base,
-        ];
-
-        // create empty filled rectangles
-        foreach ($this->images as $image) {
-            $this->createFilledBox($image);
-        }
     }
 
     /**
@@ -217,19 +290,49 @@ class CountdownTimer {
             $text = $interval->format('00:00:00:00');
             $this->loops = 1;
         } else {
-            $text = $interval->format('0%a:%H:%I:%S');
+            $text = $interval->format('%a:%H:%I:%S');
             $this->loops = 0;
         }
+        
+        $calculateCoords = !$this->textCoords;
+        
+        if ($calculateCoords) {
+            // The coordinates have not been calculated yet
+            $this->textCoords['x'] = $this->xOffset;
+            $this->textCoords['y'] = $this->yOffset;
+            $this->textCoords['labelOffsetY'] = 0;
+        }
+        
+        if ($this->centerText && ($calculateCoords || $this->recenter)) {
+            // Note, coords are calculated from the bottom of the text
+            $typeSpace = imagettfbbox($font['size'], 0, $font['path'], $text);
+            
+            $textWidth = abs($typeSpace[4] - $typeSpace[0]);
+            $textHeight = abs($typeSpace[5] - $typeSpace[1]);
+            
+            $spaceX = $this->width - $textWidth;
+            $spaceY = $this->height - $textHeight;
+            
+            $this->textCoords['x'] = $spaceX / 2;
+            $this->textCoords['y'] = $textHeight + ($spaceY / 2);
+            
+            $this->textCoords['labelOffsetY'] = $textHeight;
+        }
 
-        $labels = array('Days', 'Hrs', 'Mins', 'Secs');
-
-        // apply the labels to the image $this->yOffset + ($this->characterHeight * 0.8)
-        foreach ($labels as $key => $label) {
-            imagettftext($image, 15, 0, $this->xOffset + ($this->characterWidth * $this->labelOffsets[$key]), 98, $font['color'], $font['path'], $label);
+        if (!$this->hideLabel) {
+            $labels = array('Days', 'Hrs', 'Mins', 'Secs');
+        
+            // apply the labels to the image $this->yOffset + ($this->characterHeight * 0.8)
+            foreach ($labels as $key => $label) {
+                $labelX = $this->xOffset + ($this->characterWidth * $this->labelOffsetsX[$key]);
+                $labelY = $this->textCoords['labelOffsetY'] + $this->labelOffsetY;
+                $color = $font['labelColor'] ?: $font['color'];
+                imagettftext($image, $font['labelSize'], 0, $labelX, $labelY, $color, $font['path'], $label);
+            }
         }
 
         // apply time to new image
-        imagettftext($image, $font['size'], 0, $this->xOffset, $this->yOffset, $font['color'], $font['path'], $text);
+        imagettftext($image, $font['size'], 0, $this->textCoords['x'], $this->textCoords['y'], $font['color'], $font['path'], $text);
 
         ob_start();
         imagegif($image);
@@ -254,4 +357,4 @@ class CountdownTimer {
 
 }
 
-// http://[server-address]/countdown.php?time=2016-12-25+00:00:01&width=640&height=110&boxColor=8B2860&font=BebasNeue&fontColor=FBB92C&fontSize=60&xOffset=155&yOffset=70&labelOffsets=1.4,5,8,11
+// https://[domain]/countdown.gif?time=2018-07-10+00:00:01&width=640&height=85&boxcolor=%23333&font=BebasNeue&fontcolor=%23FFF&fontsize=60&xoffset=155&yoffset=70&labeloffsety=20&timezone=America/New_York&hidelabel=1
