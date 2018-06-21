@@ -1,4 +1,6 @@
-=Originally from https://github.com/woolm110/email-countdown-timer but my god is it buggy
+Originally from https://github.com/woolm110/email-countdown-timer but my god is it buggy
+
+---
 
 # Email Countdown Timer
 
