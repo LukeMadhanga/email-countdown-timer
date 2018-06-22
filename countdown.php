@@ -121,6 +121,18 @@ class CountdownTimer {
      * @var array
      */
     private $labels = ['Days', 'Hrs', 'Mins', 'Secs'];
+    
+    /**
+     * The text to show when the countdown has ended
+     * @var type 
+     */
+    private $endedtext;
+    
+    /**
+     * <b>True</b> if the time is being shown, <b>false</b> if an end screen is being shown
+     * @var boolean
+     */
+    private $showingTime;
 
     /**
      * CountdownTimer constructor.
@@ -145,6 +157,7 @@ class CountdownTimer {
             'labelColor' => null,
             'labelSize' => 15,
             'recenter' => false,
+            'endedText' => 'ENDED',
         ];
         
         $this->width = $s['width'];
@@ -163,6 +176,8 @@ class CountdownTimer {
         $this->labelOffsetY = $s['labelOffsetY'];
         $this->hideLabel = $s['hideLabel'];
         $this->labelSize = $s['labelSize'];
+        
+        $this->endedtext = $s['endedText'];
 
         $this->date['time'] = $s['time'];
         $this->date['futureDate'] = new DateTime(date('r', strtotime($s['time'])));
@@ -295,10 +310,13 @@ class CountdownTimer {
      */
     private function applyTextToImage($image, $font, $date) {
         $interval = date_diff($date['futureDate'], $date['now']);
-
+        
+        $this->showingTime = true;
+        
         if ($date['futureDate'] < $date['now']) {
-            $text = $interval->format('00:00:00:00');
+            $text = $interval->format($this->endedtext);
             $this->loops = 1;
+            $this->showingTime = false;
         } else {
             $text = $interval->format('%a:%H:%I:%S');
             
@@ -312,7 +330,7 @@ class CountdownTimer {
         
         $this->calculateCoords($font, $text);
 
-        if (!$this->hideLabel) {
+        if (!$this->hideLabel && $this->showingTime) {
             
             $this->calculateCoordsLabel($font, $text);
         
@@ -354,14 +372,14 @@ class CountdownTimer {
             $this->textCoords['labelOffsetY'] = 0;
         }
         
-        if ($this->centerText && ($calculateCoords || $this->recenter)) {
+        if ($this->centerText && ($calculateCoords || $this->recenter || !$this->showingTime)) {
             // Note, coords are calculated from the bottom of the text
             $typeSpace = imagettfbbox($font['size'], 0, $font['path'], $timetext);
             
             $labelHeight = 0;
             $labelOffset = 0;
             
-            if (!$this->hideLabel) {
+            if (!$this->hideLabel && $this->showingTime) {
                 // Add in metrics for the label
                 $labelTypeSpace = imagettfbbox($font['labelSize'], 0, $font['path'], 'Days');
                 $labelHeight = abs($labelTypeSpace[5] - $labelTypeSpace[1]);
@@ -398,7 +416,7 @@ class CountdownTimer {
             ];
         }
         
-        if ($this->centerText && ($calculateCoords || $this->recenter)) {
+        if ($this->centerText && ($calculateCoords || $this->recenter || !$this->showingTime)) {
             $parts = explode(':', $timetext);
             
             $colontype = imagettfbbox($font['size'], 0, $font['path'], ':');
