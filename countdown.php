@@ -70,7 +70,7 @@ class CountdownTimer {
     /**
      * @var int
      */
-    private $seconds = 30;
+    private $seconds = 90;
     
     /**
      * @var array
@@ -315,7 +315,7 @@ class CountdownTimer {
         
         if ($date['futureDate'] < $date['now']) {
             $text = $interval->format($this->endedtext);
-            $this->loops = 1;
+            $this->loops = false;
             $this->showingTime = false;
         } else {
             $text = $interval->format('%a:%H:%I:%S');
@@ -345,6 +345,8 @@ class CountdownTimer {
 
         // apply time to new image
         imagettftext($image, $font['size'], 0, $this->textCoords['x'], $this->textCoords['y'], $font['color'], $font['path'], $text);
+        
+        imagetruecolortopalette($image, false, 16);
 
         ob_start();
         imagegif($image);
