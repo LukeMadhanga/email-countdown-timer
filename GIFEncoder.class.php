@@ -85,7 +85,7 @@ class AnimatedGif
     $transparent_colour_green = 0;
     $transparent_colour_blue = 0;
 
-    $this->number_of_loops = ($number_of_loops > -1) ? $number_of_loops : 0;
+    $this->number_of_loops = $number_of_loops === false ? false : ($number_of_loops > -1 ? $number_of_loops : 0);
     $this->set_transparent_colour($transparent_colour_red, $transparent_colour_green, $transparent_colour_blue);
     $this->buffer_images($source_images);
 
@@ -144,7 +144,9 @@ class AnimatedGif
       $cmap = 3 * (2 << (ord($this->buffer[0]{10}) & 0x07));
       $this->image .= substr($this->buffer[0], 6, 7);
       $this->image .= substr($this->buffer[0], 13, $cmap);
-      $this->image .= "!\377\13NETSCAPE2.0\3\1" . $this->word($this->number_of_loops) . "\0";
+      if ($this->number_of_loops !== false) {
+        $this->image .= "!\377\13NETSCAPE2.0\3\1" . $this->word($this->number_of_loops) . "\0";
+      }
     }
   }
 
@@ -275,7 +277,12 @@ class AnimatedGif
   {
 //late footer add
     $this->addFooter();
-    header('Content-type:image/jpg');
+    header('Content-type: image/gif');
+    header('Cache-Control: no-cache, no-store');
+    header('Expires: -1');
+    header('Pragma: no-cache');
+    header('Content-Length: ' . mb_strlen($this->image));
+    
     echo $this->image;
   }
 
